@@ -1,61 +1,378 @@
 @import "tailwindcss";
-@import url('https://api.fontshare.com/v2/css?f[]=satoshi@900,700,500,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* ============================================================
+   DESIGN SYSTEM — Intentia Style
+   ============================================================ */
 
 @theme {
-  --font-sans: "Satoshi", "Inter", ui-sans-serif, system-ui, sans-serif;
-  
-  --color-brand-orange: #FF4D00;
-  --color-brand-orange-light: #FF6622;
-  --color-brand-cream: #FCE8E1;
-  --color-brand-bg: #000000;
-  --color-brand-card: #0A0A0A;
-  --color-brand-card-accent: #D9E3E8;
-  --color-brand-card-hover: #121212;
-  --color-brand-border: #1A1A1A;
-  --color-brand-text: #FFFFFF;
-  --color-brand-text-muted: #888888;
-  --color-brand-gray-dark: #333333;
-  --color-brand-gray-light: #E5E5E5;
-  --color-brand-gray-soft: #F9F9F9;
+  --variant-dark: (selector: .dark);
+}
+
+/* Custom Logo theme toggle logic with smooth transition */
+.logo-light,
+.logo-dark {
+  transition: opacity 0.4s ease-in-out, transform 0.4s ease;
+}
+
+.logo-light {
+  opacity: 1;
+  visibility: visible;
+  position: relative;
+}
+
+.logo-dark {
+  opacity: 0;
+  visibility: hidden;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.dark .logo-light {
+  opacity: 0;
+  visibility: hidden;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.dark .logo-dark {
+  opacity: 1;
+  visibility: visible;
+  position: relative;
 }
 
 @layer base {
-  body {
-    @apply bg-brand-bg text-brand-text font-sans antialiased;
+  :root {
+    /* Background / Surface */
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    /* Primary — laranja */
+    --primary: 22 100% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary */
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    /* Muted */
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    /* Accent */
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+
+    /* Destructive */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders & Inputs */
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 22 100% 50%;
+
+    /* Radius */
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 224 71% 4%;
+    --foreground: 213 31% 91%;
+    --card: 224 71% 6%;
+    --card-foreground: 213 31% 91%;
+    --popover: 224 71% 5%;
+    --popover-foreground: 213 31% 91%;
+
+    --primary: 22 100% 52%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 222 47% 11%;
+    --secondary-foreground: 213 31% 91%;
+
+    --muted: 223 47% 11%;
+    --muted-foreground: 215 16% 57%;
+
+    --accent: 222 47% 13%;
+    --accent-foreground: 213 31% 91%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 216 34% 17%;
+    --input: 216 34% 17%;
+    --ring: 22 100% 52%;
   }
 }
 
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+    box-sizing: border-box;
+    transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 300ms;
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Mapping old brand vars → new system (retrocompat) */
+  :root {
+    --brand-orange: hsl(22 100% 50%);
+    --brand-bg: hsl(var(--background));
+    --brand-card: hsl(var(--card));
+    --brand-border: hsl(var(--border));
+    --brand-text: hsl(var(--foreground));
+    --brand-text-muted: hsl(var(--muted-foreground));
+  }
+}
+
+/* Tailwind v4 theme tokens */
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  /* primary orange */
+  --color-primary: hsl(22 100% 50%);
+  --color-primary-foreground: hsl(0 0% 100%);
+
+  /* semantic mappings */
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-border: hsl(var(--border));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  /* brand-* retrocompat */
+  --color-brand-orange: hsl(22 100% 50%);
+  --color-brand-orange-light: hsl(22 100% 60%);
+  --color-brand-bg: hsl(var(--background));
+  --color-brand-card: hsl(var(--card));
+  --color-brand-card-accent: hsl(var(--accent));
+  --color-brand-card-hover: hsl(var(--muted));
+  --color-brand-border: hsl(var(--border));
+  --color-brand-text: hsl(var(--foreground));
+  --color-brand-text-muted: hsl(var(--muted-foreground));
+  --color-brand-gray-dark: hsl(215 16% 47%);
+  --color-brand-gray-light: hsl(214 32% 91%);
+  --color-brand-gray-soft: hsl(210 40% 98%);
+
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: calc(var(--radius));
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: calc(var(--radius) + 6px);
+  --radius-2xl: calc(var(--radius) + 12px);
+}
+
+/* ============================================================
+   UTILITY CLASSES — Intentia Style
+   ============================================================ */
+
+/* Card elevated — principal padrão de card */
+.card-elevated {
+  @apply bg-card border border-border rounded-xl shadow-sm hover:shadow-md transition-shadow;
+}
+
+/* Gradient hero — fundo do hero section */
+.gradient-hero {
+  background: radial-gradient(ellipse 80% 50% at 50% -20%, hsl(22 100% 50% / 0.12), transparent);
+}
+
+/* Text gradient — para highlights no heading */
+.text-gradient {
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Border beam — borda animada */
+.border-beam {
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(var(--angle, 0deg),
+      transparent 50%,
+      hsl(22 100% 50% / 0.6) 75%,
+      transparent 100%);
+  animation: border-beam 4s linear infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes border-beam {
+  to {
+    --angle: 360deg;
+  }
+}
+
+@property --angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+/* Input base */
+.input-base {
+  width: 100%;
+  background-color: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: hsl(var(--foreground));
+  transition: all 0.2s;
+  outline: none;
+}
+
+.input-base::placeholder {
+  color: hsl(var(--muted-foreground));
+}
+
+.input-base:focus {
+  border-color: hsl(var(--ring));
+  box-shadow: 0 0 0 3px hsl(var(--ring) / 0.2);
+}
+
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease both;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.6s ease both;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.5s ease both;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* ============================================================
+   RETROCOMPAT — manter classes antigas funcionando
+   ============================================================ */
+
 .glass-card {
-  @apply bg-brand-card border border-brand-border rounded-3xl shadow-sm;
+  @apply bg-card border border-border rounded-2xl shadow-sm;
 }
 
 .btn-primary {
-  @apply bg-brand-orange hover:bg-brand-orange-light text-white font-black uppercase tracking-widest py-4 px-8 rounded-full transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-lg shadow-brand-orange/20 hover:scale-[1.02] active:scale-[0.98];
+  @apply bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 px-6 rounded-full transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98];
 }
 
 .input-field {
-  @apply w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 focus:outline-none focus:ring-2 focus:ring-brand-orange/50 focus:border-brand-orange transition-all text-sm font-medium placeholder:text-brand-text-muted;
+  width: 100%;
+  background-color: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: hsl(var(--foreground));
+  transition: all 0.2s;
+  outline: none;
+}
+
+.input-field::placeholder {
+  color: hsl(var(--muted-foreground));
+}
+
+.input-field:focus {
+  border-color: hsl(var(--ring));
+  box-shadow: 0 0 0 3px hsl(var(--ring) / 0.2);
 }
 
 .nav-tab {
-  @apply flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer text-brand-text-muted hover:text-brand-text hover:bg-white/5;
+  @apply flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer text-muted-foreground hover:text-foreground hover:bg-accent;
 }
 
 .nav-tab-active {
-  @apply bg-brand-orange text-white shadow-lg shadow-brand-orange/20;
+  @apply bg-primary text-primary-foreground shadow-sm shadow-primary/30;
 }
 
 .tag {
-  @apply inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-brand-orange/10 text-brand-orange border border-brand-orange/20;
+  @apply inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20;
 }
 
 .step-card {
-  @apply flex-1 p-6 rounded-[32px] border border-black/5 bg-brand-card-accent/50;
+  @apply flex-1 p-5 rounded-xl border border-border bg-accent/50;
 }
 
+/* Scrollbar slim */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;

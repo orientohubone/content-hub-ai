@@ -1,0 +1,9 @@
+# INSTRUCOES DE CONFIGURACAO
+# Para fazer o dashboard funcionar, voce precisa criar um arquivo chamado .env na raiz do projeto com o seguinte conteudo:
+
+GEMINI_API_KEY="COLE_SUA_CHAVE_AQUI"
+FIRECRAWL_API_KEY="COLE_SUA_CHAVE_AQUI"
+APP_URL="http://localhost:3000"
+
+# O arquivo .env eh necessário para que as buscas reais funcionem.
+# O sistema já está configurado para ler estas chaves do .env via vite.config.ts.
