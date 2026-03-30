@@ -1,6 +1,13 @@
 import { GoogleGenAI } from "@google/genai";
 
-export const ai = new GoogleGenAI({ apiKey: (import.meta.env.VITE_GEMINI_API_KEY as string) || "" });
+function getGeminiApiKey(): string {
+  const meta = import.meta.env as any;
+  const fromViteMeta = (meta?.VITE_GEMINI_API_KEY as string) || (meta?.GEMINI_API_KEY as string) || "";
+  const fromDefinedProcess = (globalThis as any)?.process?.env?.GEMINI_API_KEY as string | undefined;
+  return (fromViteMeta || fromDefinedProcess || "").trim();
+}
+
+export const ai = new GoogleGenAI({ apiKey: getGeminiApiKey() });
 
 export interface AnalysisResult {
   landscape: {

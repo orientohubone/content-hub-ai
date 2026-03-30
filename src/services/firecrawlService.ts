@@ -1,5 +1,12 @@
 const FIRECRAWL_API_URL = "https://api.firecrawl.dev/v1";
 
+function getFirecrawlApiKey(): string {
+  const meta = import.meta.env as any;
+  const fromViteMeta = (meta?.VITE_FIRECRAWL_API_KEY as string) || (meta?.FIRECRAWL_API_KEY as string) || "";
+  const fromDefinedProcess = (globalThis as any)?.process?.env?.FIRECRAWL_API_KEY as string | undefined;
+  return (fromViteMeta || fromDefinedProcess || "").trim();
+}
+
 export interface ScrapeResult {
   success: boolean;
   data?: {
@@ -23,7 +30,7 @@ export interface ExtractResult {
 }
 
 export async function scrapeUrl(url: string): Promise<ScrapeResult> {
-  const apiKey = (import.meta.env.VITE_FIRECRAWL_API_KEY as string) || "";
+  const apiKey = getFirecrawlApiKey();
   
   try {
     const response = await fetch(`${FIRECRAWL_API_URL}/scrape`, {
@@ -52,7 +59,7 @@ export async function scrapeUrl(url: string): Promise<ScrapeResult> {
 }
 
 export async function mapDomain(url: string): Promise<MapResult> {
-  const apiKey = (import.meta.env.VITE_FIRECRAWL_API_KEY as string) || "";
+  const apiKey = getFirecrawlApiKey();
   
   try {
     const response = await fetch(`${FIRECRAWL_API_URL}/map`, {
@@ -78,7 +85,7 @@ export async function mapDomain(url: string): Promise<MapResult> {
 }
 
 export async function extractBranding(url: string): Promise<any> {
-  const apiKey = (import.meta.env.VITE_FIRECRAWL_API_KEY as string) || "";
+  const apiKey = getFirecrawlApiKey();
   
   try {
     const response = await fetch(`${FIRECRAWL_API_URL}/scrape`, {
@@ -106,7 +113,7 @@ export async function extractBranding(url: string): Promise<any> {
   }
 }
 export async function extractStructured(url: string, prompt: string, schema?: any): Promise<ExtractResult> {
-  const apiKey = (import.meta.env.VITE_FIRECRAWL_API_KEY as string) || "";
+  const apiKey = getFirecrawlApiKey();
   
   try {
     const body: any = {
