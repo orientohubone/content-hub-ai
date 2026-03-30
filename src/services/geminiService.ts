@@ -272,12 +272,47 @@ export async function analyzeGaps(domain: string, competitors: string[]): Promis
 }
 
 export async function generateRecs(domain: string, analysisData: any): Promise<RecResult> {
+  // Extract key data from analysis results
+  const gaps = analysisData?.gapResult?.gaps || [];
+  const keywords = analysisData?.keywordResult?.keywords || [];
+  const ideas = analysisData?.result?.ideas || [];
+  
   const prompt = `
-    IA CONTENT RECOMMENDATIONS:
-    Domínio: ${domain}
-    Dados base: ${JSON.stringify(analysisData)}
-    Gere recomendações de Novo Conteúdo, Otimização ou Reciclagem.
-    Responda apenas com o JSON puro seguindo a estrutura de RecResult.
+    EXPERT CONTENT STRATEGIST - GENERATE TACTICAL AI-POWERED RECOMMENDATIONS.
+    
+    DOMAIN TO ANALYZE: ${domain}
+    
+    AVAILABLE ANALYSIS DATA:
+    ${ideas.length > 0 ? `- Content Ideas: ${ideas.map((i: any) => i.title).join(", ")}` : ""}
+    ${gaps.length > 0 ? `- Content Gaps Identified: ${gaps.map((g: any) => g.topic).join(", ")}` : ""}
+    ${keywords.length > 0 ? `- Strategic Keywords: ${keywords.slice(0, 5).map((k: any) => k.term).join(", ")}` : ""}
+    
+    YOUR TASK:
+    Generate 8-12 TACTICAL CONTENT RECOMMENDATIONS prioritized by ROI impact.
+    
+    RECOMMENDATION TYPES (use only these):
+    1. "Novo Conteúdo" - Create new content pieces (blog posts, guides, videos)
+    2. "Otimização" - Optimize existing content for SEO/engagement
+    3. "Reciclagem" - Repurpose existing content across channels
+    
+    RULES FOR IMPACT CLASSIFICATION:
+    - "Crítico" = High immediate ROI (quick wins)
+    - "Alto" = Significant long-term value
+    - "Médio" = Supporting actions
+    
+    RESPONSE FORMAT (JSON ONLY):
+    {
+      "recommendations": [
+        {
+          "title": "Clear, actionable recommendation",
+          "type": "Novo Conteúdo|Otimização|Reciclagem",
+          "reason": "Why this matters for ${domain} (1-2 sentences)",
+          "expectedImpact": "Crítico|Alto|Médio"
+        }
+      ]
+    }
+    
+    RESPOND WITH ONLY JSON, NO EXPLANATIONS.
   `;
 
   try {
@@ -295,12 +330,45 @@ export async function generateRecs(domain: string, analysisData: any): Promise<R
   }
 }
 
-export async function planEditorial(domain: string, topics: string[]): Promise<EditorialResult> {
+export async function planEditorial(domain: string, topics: string[], weeks: number = 4): Promise<EditorialResult> {
   const prompt = `
-    SMART EDITORIAL PLAN (4 WEEKS):
-    Domínio: ${domain}
-    Tópicos: ${topics.join(", ")}
-    Responda apenas com o JSON puro seguindo a estrutura de EditorialResult.
+    EXPERT EDITORIAL STRATEGIST - CREATE SMART CONTENT CALENDAR.
+    
+    DOMAIN: ${domain}
+    CALENDAR PERIOD: ${weeks} semanas
+    BASE TOPICS: ${topics.slice(0, 10).join(", ")}
+    
+    YOUR TASK:
+    Generate a comprehensive content calendar for ${weeks} weeks with strategic distribution of content.
+    
+    REQUIREMENTS:
+    - Distribute topics intelligently across ${weeks} weeks
+    - Vary content formats (Blog Post, Video, Infográfico, Guia, Webinar, Podcast, Social Series)
+    - Vary distribution channels (Blog, YouTube, LinkedIn, Instagram, TikTok, Newsletter)
+    - Use realistic status progression (Planejado → Em Produção → Concluído)
+    - Ensure high-impact content in prime weeks
+    - Mix educational and promotional content
+    - Include SEO-optimized titles
+    - Group related topics strategically
+    
+    RESPONSE FORMAT (JSON ONLY):
+    {
+      "calendar": [
+        {
+          "week": "Semana 1",
+          "topics": [
+            {
+              "title": "Strategic title with keywords",
+              "format": "Blog Post|Video|Infográfico|Guia|Webinar|Podcast|Social Series",
+              "channel": "Blog|YouTube|LinkedIn|Instagram|TikTok|Newsletter",
+              "status": "Planejado|Em Produção|Concluído"
+            }
+          ]
+        }
+      ]
+    }
+    
+    RESPOND WITH ONLY VALID JSON, NO EXPLANATIONS.
   `;
 
   try {

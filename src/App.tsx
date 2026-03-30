@@ -144,9 +144,12 @@ export default function App() {
 
   // Recs Tab State
   const [recResult, setRecResult] = useState<RecResult | null>(null);
+  const [recsDomain, setRecsDomain] = useState('');
 
   // Editorial Tab State
   const [editorialResult, setEditorialResult] = useState<EditorialResult | null>(null);
+  const [editorialDomain, setEditorialDomain] = useState('');
+  const [editorialPeriod, setEditorialPeriod] = useState<2 | 4 | 8>(4);
 
   // Brand Intelligence State
   const [brandingResult, setBrandingResult] = useState<BrandingResult | null>(null);
@@ -871,7 +874,8 @@ export default function App() {
   };
 
   const handleGenerateRecs = async () => {
-    if (!targetDomain.trim()) {
+    const domainToUse = recsDomain.trim() || targetDomain.trim();
+    if (!domainToUse) {
       setActionMessage({ type: 'error', text: 'Defina o domínio para gerar recomendações.' });
       return;
     }
@@ -884,7 +888,7 @@ export default function App() {
     setActionMessage(null);
     setRecResult(null);
     try {
-      const data = await generateRecs(targetDomain, { result, gapResult, keywordResult });
+      const data = await generateRecs(domainToUse, { result, gapResult, keywordResult });
       setRecResult(data);
       setActionMessage({ type: 'success', text: 'Recomendações estratégicas geradas.' });
     } catch (error) {
@@ -896,7 +900,8 @@ export default function App() {
   };
 
   const handlePlanEditorial = async () => {
-    if (!targetDomain.trim()) {
+    const domainToUse = editorialDomain.trim() || targetDomain.trim();
+    if (!domainToUse) {
       setActionMessage({ type: 'error', text: 'Defina o domínio para montar o calendário editorial.' });
       return;
     }
@@ -907,9 +912,9 @@ export default function App() {
     try {
       // Use topics from result or keywords as base
       const topics = keywordResult?.keywords.map(k => k.term) || result?.ideas.map(i => i.title) || ["SEO", "Marketing Digital"];
-      const data = await planEditorial(targetDomain, topics);
+      const data = await planEditorial(domainToUse, topics, editorialPeriod);
       setEditorialResult(data);
-      setActionMessage({ type: 'success', text: 'Calendário editorial criado com sucesso.' });
+      setActionMessage({ type: 'success', text: `Calendário editorial de ${editorialPeriod} semanas criado com sucesso.` });
     } catch (error) {
       console.error(error);
       setActionMessage({ type: 'error', text: 'Não foi possível gerar o calendário editorial.' });
@@ -2838,6 +2843,35 @@ export default function App() {
               </div>
               <p className="text-xs text-muted-foreground">{t.dashboard.tabs.recs.subtitle}</p>
               
+              {actionMessage?.type === 'error' && (
+                <div className="bg-red-950/20 border border-red-500/30 text-red-500 text-xs p-3 rounded-lg">
+                  {actionMessage.text}
+                </div>
+              )}
+              
+              {actionMessage?.type === 'success' && (
+                <div className="bg-green-950/20 border border-green-500/30 text-green-500 text-xs p-3 rounded-lg flex items-center gap-2">
+                  <Check size={14} />
+                  {actionMessage.text}
+                </div>
+              )}
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-semibold text-foreground block mb-2">
+                    <Globe size={12} className="inline mr-1" />
+                    Domínio (opcional)
+                  </label>
+                  <input 
+                    type="text" 
+                    className="input-field w-full" 
+                    placeholder="Ex: seublog.com | Deixe vazio para usar o domínio principal"
+                    value={recsDomain}
+                    onChange={(e) => setRecsDomain(e.target.value)}
+                  />
+                </div>
+              </div>
+              
               <button 
                 onClick={handleGenerateRecs}
                 disabled={loading}
@@ -2849,40 +2883,67 @@ export default function App() {
             </section>
 
             <AnimatePresence>
-              {recResult && (
+              {recResult && (recResult.recommendations?.length || 0) > 0 ? (
                 <motion.div 
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="space-y-6"
                 >
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">{t.dashboard.tabs.recs.title}</h3>
+                    <div>
+                      <h3 className="text-sm font-semibold">{t.dashboard.tabs.recs.title}</h3>
+                      <p className="text-xs text-muted-foreground mt-1">{recResult.recommendations.length} recomendações geradas</p>
+                    </div>
                     <ExportToolbar />
                   </div>
+                  
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {(recResult.recommendations || []).map((rec, i) => (
-                  <div key={i} className="card-elevated p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className={cn(
-                        "text-[9px] px-2 py-0.5 rounded-full border font-bold uppercase",
-                        rec.type === 'Novo Conteúdo' ? "bg-blue-950/20 text-blue-500 border-blue-500/30" :
-                        rec.type === 'Otimização' ? "bg-yellow-950/20 text-yellow-500 border-yellow-500/30" :
-                        "bg-green-950/20 text-green-500 border-green-500/30"
-                      )}>
-                        {rec.type}
-                      </span>
-                      <span className="text-[10px] font-bold text-primary">{t.dashboard.tabs.recs.impact}: {rec.expectedImpact}</span>
-                    </div>
-                    <h4 className="text-xs font-bold">{rec.title}</h4>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">{rec.reason}</p>
+                    {recResult.recommendations.map((rec, i) => (
+                      <motion.div 
+                        key={i}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.05 }}
+                        className="card-elevated p-4 space-y-3 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={cn(
+                            "text-[9px] px-2 py-0.5 rounded-full border font-bold uppercase whitespace-nowrap",
+                            rec.type === 'Novo Conteúdo' ? "bg-blue-950/20 text-blue-500 border-blue-500/30" :
+                            rec.type === 'Otimização' ? "bg-yellow-950/20 text-yellow-500 border-yellow-500/30" :
+                            rec.type === 'Reciclagem' ? "bg-green-950/20 text-green-500 border-green-500/30" :
+                            "bg-purple-950/20 text-purple-500 border-purple-500/30"
+                          )}>
+                            {rec.type}
+                          </span>
+                          <span className={cn(
+                            "text-[9px] px-2 py-0.5 rounded-full font-bold whitespace-nowrap",
+                            rec.expectedImpact === 'Crítico' ? "bg-red-950/20 text-red-400" :
+                            rec.expectedImpact === 'Alto' ? "bg-orange-950/20 text-orange-400" :
+                            "bg-yellow-950/20 text-yellow-400"
+                          )}>
+                            {rec.expectedImpact}
+                          </span>
+                        </div>
+                        <h4 className="text-xs font-bold leading-tight">{rec.title}</h4>
+                        <p className="text-[11px] text-muted-foreground leading-relaxed">{rec.reason}</p>
+                      </motion.div>
+                    ))}
                   </div>
-                ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-      );
+                </motion.div>
+              ) : recResult ? (
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-yellow-950/10 border border-yellow-500/20 rounded-lg p-6 text-center space-y-2"
+                >
+                  <p className="text-sm font-semibold">Sem recomendações disponíveis</p>
+                  <p className="text-xs text-muted-foreground">Realize uma análise (Pesquisa, Gaps ou Keywords) primeiro para gerar recomendações.</p>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+          </motion.div>
+        );
 
       case 'Editorial':
         return (
@@ -2900,6 +2961,58 @@ export default function App() {
               </div>
               <p className="text-xs text-muted-foreground">{t.dashboard.tabs.editorial.subtitle}</p>
               
+              {actionMessage?.type === 'error' && (
+                <div className="bg-red-950/20 border border-red-500/30 text-red-500 text-xs p-3 rounded-lg">
+                  {actionMessage.text}
+                </div>
+              )}
+              
+              {actionMessage?.type === 'success' && (
+                <div className="bg-green-950/20 border border-green-500/30 text-green-500 text-xs p-3 rounded-lg flex items-center gap-2">
+                  <Check size={14} />
+                  {actionMessage.text}
+                </div>
+              )}
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-semibold text-foreground block mb-2">
+                    <Globe size={12} className="inline mr-1" />
+                    Domínio (opcional)
+                  </label>
+                  <input 
+                    type="text" 
+                    className="input-field w-full" 
+                    placeholder="Ex: seublog.com | Deixe vazio para usar o domínio principal"
+                    value={editorialDomain}
+                    onChange={(e) => setEditorialDomain(e.target.value)}
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-xs font-semibold text-foreground block mb-2">
+                    <Calendar size={12} className="inline mr-1" />
+                    Período do Calendário
+                  </label>
+                  <div className="flex gap-2">
+                    {[2, 4, 8].map((weeks) => (
+                      <button
+                        key={weeks}
+                        onClick={() => setEditorialPeriod(weeks as 2 | 4 | 8)}
+                        className={cn(
+                          "flex-1 px-3 py-2 rounded-lg text-xs font-semibold border transition-all",
+                          editorialPeriod === weeks
+                            ? "bg-primary text-white border-primary shadow-lg"
+                            : "bg-muted border-border hover:bg-muted/80"
+                        )}
+                      >
+                        {weeks} semanas
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              
               <button 
                 onClick={handlePlanEditorial}
                 disabled={loading}
@@ -2911,47 +3024,92 @@ export default function App() {
             </section>
 
             <AnimatePresence>
-              {editorialResult && (
+              {editorialResult && (editorialResult.calendar?.length || 0) > 0 ? (
                 <motion.div 
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="space-y-6"
+                  className="space-y-8"
                 >
-                  <div className="flex justify-end p-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold">{t.dashboard.tabs.editorial.planTitle}</h3>
+                      <p className="text-xs text-muted-foreground mt-1">{editorialResult.calendar.length} semanas planejadas</p>
+                    </div>
                     <ExportToolbar />
                   </div>
-                {(editorialResult.calendar || []).map((week, i) => (
-                  <div key={i} className="space-y-3">
-                    <h4 className="text-xs font-semibold text-muted-foreground px-2 border-l-2 border-brand-orange">{week.week}</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {(week.topics || []).map((topic, j) => (
-                        <div key={j} className="card-elevated p-4 flex items-center justify-between">
-                          <div className="space-y-1">
-                            <p className="text-xs font-bold">{topic.title}</p>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] text-muted-foreground">{topic.format}</span>
-                              <span className="text-[10px] text-muted-foreground">·</span>
-                              <span className="text-[10px] text-muted-foreground">{topic.channel}</span>
-                            </div>
-                          </div>
-                          <span className={cn(
-                            "text-[9px] px-2 py-0.5 rounded-full border font-bold uppercase",
-                            topic.status === 'Planejado' ? "bg-blue-950/20 text-blue-500 border-blue-500/30" :
-                            topic.status === 'Em Produção' ? "bg-yellow-950/20 text-yellow-500 border-yellow-500/30" :
-                            "bg-green-950/20 text-green-500 border-green-500/30"
-                          )}>
-                            {topic.status}
-                          </span>
+                  
+                  {editorialResult.calendar.map((week, i) => (
+                    <motion.div 
+                      key={i}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.1 }}
+                      className="space-y-4"
+                    >
+                      <div className="flex items-center gap-3 pb-3 border-b border-border">
+                        <div className="bg-primary/20 p-2 rounded-lg">
+                          <Calendar size={16} className="text-primary" />
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-      );
+                        <h4 className="text-sm font-semibold">{week.week}</h4>
+                        <span className="text-xs text-muted-foreground ml-auto">{week.topics?.length || 0} tópicos</span>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {(week.topics || []).map((topic, j) => (
+                          <motion.div 
+                            key={j}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: (i * week.topics!.length + j) * 0.02 }}
+                            className="card-elevated p-4 space-y-3 hover:shadow-md transition-shadow"
+                          >
+                            <div className="space-y-2">
+                              <p className="text-sm font-bold leading-snug text-foreground">{topic.title}</p>
+                              <div className="flex flex-wrap gap-2">
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
+                                  {topic.format}
+                                </span>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
+                                  {topic.channel}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center justify-between pt-2 border-t border-border">
+                              <span className={cn(
+                                "text-[9px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider flex items-center gap-1",
+                                topic.status === 'Planejado' ? "bg-blue-950/20 text-blue-400 border border-blue-500/30" :
+                                topic.status === 'Em Produção' ? "bg-yellow-950/20 text-yellow-400 border border-yellow-500/30" :
+                                "bg-green-950/20 text-green-400 border border-green-500/30"
+                              )}>
+                                <span className={cn(
+                                  "w-1.5 h-1.5 rounded-full",
+                                  topic.status === 'Planejado' ? "bg-blue-400" :
+                                  topic.status === 'Em Produção' ? "bg-yellow-400" :
+                                  "bg-green-400"
+                                )}></span>
+                                {topic.status}
+                              </span>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  ))}
+                </motion.div>
+              ) : editorialResult ? (
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-yellow-950/10 border border-yellow-500/20 rounded-lg p-6 text-center space-y-2"
+                >
+                  <p className="text-sm font-semibold">Sem calendário disponível</p>
+                  <p className="text-xs text-muted-foreground">Tente novamente ou gere uma análise (Pesquisa, Gaps ou Keywords) como base.</p>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+          </motion.div>
+        );
     }
   };
 
