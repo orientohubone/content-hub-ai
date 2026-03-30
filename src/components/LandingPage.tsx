@@ -234,12 +234,44 @@ export default function LandingPage({ onEnter, language, setLanguage }: LandingP
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
+              className="space-y-4 mb-6"
             >
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent border border-border mb-6">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent border border-border">
                 <Zap className="h-4 w-4 text-primary" />
                 <span className="text-sm font-medium text-accent-foreground">
                   {t.hero.badge}
                 </span>
+              </div>
+              
+              {/* AI Partners Icons */}
+              <div className="flex items-center justify-center gap-6 pt-2">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.5, delay: 0.1 }}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:border-white/20 transition-all"
+                >
+                  <img 
+                    src="/gemini-color.svg" 
+                    alt="Google Gemini" 
+                    className="h-4 w-4"
+                  />
+                  <span className="text-xs font-medium text-muted-foreground">Gemini</span>
+                </motion.div>
+                
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.5, delay: 0.15 }}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:border-white/20 transition-all"
+                >
+                  <img 
+                    src="/firecrawl-logo.svg" 
+                    alt="Firecrawl" 
+                    className="h-4 w-4"
+                  />
+                  <span className="text-xs font-medium text-muted-foreground">Firecrawl</span>
+                </motion.div>
               </div>
             </motion.div>
 
