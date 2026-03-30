@@ -2156,7 +2156,7 @@ export default function App() {
               <button 
                 onClick={handleAnalyzeSEO}
                 disabled={loading}
-                className="btn-primary"
+                className="btn-primary w-full max-w-md mx-auto py-4 text-base"
               >
                 {loading ? <Loader2 className="animate-spin" size={18} /> : <Zap size={18} />}
                 {t.dashboard.tabs.seo.analyze}
