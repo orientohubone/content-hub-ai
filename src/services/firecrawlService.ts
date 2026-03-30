@@ -143,7 +143,20 @@ export async function extractStructured(url: string, prompt: string, schema?: an
     }
 
     const result = await response.json();
-    return { success: true, data: result.data.extract };
+    const extractedData =
+      result?.data?.extract ??
+      result?.extract ??
+      result?.data ??
+      null;
+
+    if (!extractedData || typeof extractedData !== 'object') {
+      return {
+        success: false,
+        error: "A extração retornou vazia ou em formato inesperado."
+      };
+    }
+
+    return { success: true, data: extractedData };
   } catch (error: any) {
     console.error("Error extracting with Firecrawl:", error);
     return { success: false, error: error.message };

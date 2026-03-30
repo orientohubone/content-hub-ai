@@ -299,9 +299,18 @@ export async function analyzeSEO(url: string, content?: string): Promise<SEOAudi
   const prompt = `
     SEO & GEO ADVANCED AUDIT:
     URL: ${url}
-    CONTEÚDO: ${content || "Analisar estrutura geral do domínio."}
-    Realize auditoria On-page, EEAT, Performance e GEO.
-    Responda apenas com o JSON puro seguindo a estrutura de SEOAuditResult.
+    CONTEÚDO DA PÁGINA: ${content || "Conteúdo não disponível, inferir estrutura pela URL."}
+    Faça uma auditoria On-page, EEAT, Performance e GEO com dados acionáveis.
+    
+    REGRAS IMPORTANTES:
+    - Não retorne campos vazios sem justificativa.
+    - Se não encontrar um item, retorne [] mas preencha os demais com o máximo possível.
+    - Forneça pelo menos 4 itens em checklist e 4 em improvements quando possível.
+    - pageSpeed.score e qualityScore devem ser números de 0 a 100.
+    - eeat.overallScore deve ser número de 0 a 10.
+    - Use status somente: good, regular ou poor.
+    
+    Responda apenas com JSON puro no formato de SEOAuditResult.
   `;
 
   try {

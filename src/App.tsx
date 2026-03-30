@@ -127,6 +127,13 @@ export default function App() {
   const [seoUrl, setSeoUrl] = useState('');
   const [seoResult, setSeoResult] = useState<SEOAuditResult | null>(null);
   const [seoHistory, setSeoHistory] = useState<any[]>([]);
+  const [showAllSeoHeadings, setShowAllSeoHeadings] = useState(false);
+  const [showAllSeoMetaTags, setShowAllSeoMetaTags] = useState(false);
+
+  React.useEffect(() => {
+    setShowAllSeoHeadings(false);
+    setShowAllSeoMetaTags(false);
+  }, [seoResult]);
 
   // Keywords Tab State
   const [keywordResult, setKeywordResult] = useState<KeywordResult | null>(null);
@@ -151,6 +158,61 @@ export default function App() {
 
   const [trendHistory, setTrendHistory] = useState<any[]>([]);
 
+  const normalizeSeoResult = (raw: any): SEOAuditResult => {
+    const safe = raw && typeof raw === 'object' ? raw : {};
+    const safePageSpeed = safe.pageSpeed && typeof safe.pageSpeed === 'object' ? safe.pageSpeed : {};
+    const safeEeat = safe.eeat && typeof safe.eeat === 'object' ? safe.eeat : {};
+    const safeStructured = safe.structuredData && typeof safe.structuredData === 'object' ? safe.structuredData : {};
+
+    const clampScore = (value: any, max: number) => {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return 0;
+      return Math.max(0, Math.min(max, n));
+    };
+
+    return {
+      url: typeof safe.url === 'string' ? safe.url : '',
+      wordCount: Number.isFinite(Number(safe.wordCount)) ? Number(safe.wordCount) : 0,
+      headings: Array.isArray(safe.headings) ? safe.headings : [],
+      metaTags: Array.isArray(safe.metaTags) ? safe.metaTags : [],
+      summary: typeof safe.summary === 'string' ? safe.summary : '',
+      checklist: Array.isArray(safe.checklist) ? safe.checklist : [],
+      improvements: Array.isArray(safe.improvements) ? safe.improvements : [],
+      structuredData: {
+        existing: Array.isArray(safeStructured.existing) ? safeStructured.existing : [],
+        toImplement: Array.isArray(safeStructured.toImplement) ? safeStructured.toImplement : [],
+      },
+      pageSpeed: {
+        score: clampScore(safePageSpeed.score, 100),
+        metrics: Array.isArray(safePageSpeed.metrics) ? safePageSpeed.metrics : [],
+      },
+      qualityScore: clampScore(safe.qualityScore, 100),
+      eeat: {
+        experience: typeof safeEeat.experience === 'string' ? safeEeat.experience : '',
+        expertise: typeof safeEeat.expertise === 'string' ? safeEeat.expertise : '',
+        authoritativeness: typeof safeEeat.authoritativeness === 'string' ? safeEeat.authoritativeness : '',
+        trustworthiness: typeof safeEeat.trustworthiness === 'string' ? safeEeat.trustworthiness : '',
+        overallScore: clampScore(safeEeat.overallScore, 10),
+      },
+      geoParameters: Array.isArray(safe.geoParameters) ? safe.geoParameters : [],
+    };
+  };
+
+  const hasMeaningfulSeoData = (data: SEOAuditResult | null): boolean => {
+    if (!data) return false;
+    return (
+      data.wordCount > 0 ||
+      (data.headings?.length || 0) > 0 ||
+      (data.metaTags?.length || 0) > 0 ||
+      (data.checklist?.length || 0) > 0 ||
+      (data.improvements?.length || 0) > 0 ||
+      (data.pageSpeed?.metrics?.length || 0) > 0 ||
+      (data.structuredData?.existing?.length || 0) > 0 ||
+      (data.structuredData?.toImplement?.length || 0) > 0 ||
+      (data.geoParameters?.length || 0) > 0
+    );
+  };
+
   const tabs: { id: Tab; icon: any; label: string }[] = [
     { id: 'Pesquisa', icon: Search, label: t.dashboard.search },
     { id: 'Trends', icon: Flame, label: t.dashboard.trends },
@@ -174,7 +236,7 @@ export default function App() {
         if (Array.isArray(parsed.brandUrls)) setBrandUrls(parsed.brandUrls);
         if (Array.isArray(parsed.watchDomains)) setWatchDomains(parsed.watchDomains);
         if (Array.isArray(parsed.savedSearches)) setSavedSearches(parsed.savedSearches);
-        if (parsed.seoResult && typeof parsed.seoResult === 'object') setSeoResult(parsed.seoResult);
+        if (parsed.seoResult && typeof parsed.seoResult === 'object') setSeoResult(normalizeSeoResult(parsed.seoResult));
         if (parsed.keywordResult && typeof parsed.keywordResult === 'object') setKeywordResult(parsed.keywordResult);
         if (parsed.trendResult && typeof parsed.trendResult === 'object') setTrendResult(parsed.trendResult);
         if (parsed.brandingResult && typeof parsed.brandingResult === 'object') setBrandingResult(parsed.brandingResult);
@@ -422,13 +484,112 @@ export default function App() {
     setActionMessage(null);
     setSeoResult(null);
     try {
-      // Step 2: Use Firecrawl Extract instead of Gemini
-      const prompt = `Perform a full SEO and GEO audit. Include quality scores, EEAT evaluation, and geo-targeting parameters. Output Must strictly follow SEOAuditResult structure.`;
-      
-      const res = await extractStructured(seoUrl, prompt);
+      const prompt = `
+        Execute uma auditoria SEO e GEO completa da URL informada.
+        Retorne obrigatoriamente um objeto JSON com:
+        - url (string)
+        - wordCount (number)
+        - headings (array de { level, text })
+        - metaTags (array de { name, content })
+        - summary (string)
+        - checklist (array de { criterion, status: good|regular|poor, details })
+        - improvements (array de strings)
+        - structuredData ({ existing: string[], toImplement: string[] })
+        - pageSpeed ({ score: number 0-100, metrics: array de { name, value, status: good|regular|poor } })
+        - qualityScore (number 0-100)
+        - eeat ({ experience, expertise, authoritativeness, trustworthiness, overallScore: number 0-10 })
+        - geoParameters (array de { parameter, status, recommendation })
+      `;
+
+      const seoSchema = {
+        type: "object",
+        properties: {
+          url: { type: "string" },
+          wordCount: { type: "number" },
+          headings: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: { level: { type: "string" }, text: { type: "string" } }
+            }
+          },
+          metaTags: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: { name: { type: "string" }, content: { type: "string" } }
+            }
+          },
+          summary: { type: "string" },
+          checklist: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                criterion: { type: "string" },
+                status: { type: "string" },
+                details: { type: "string" }
+              }
+            }
+          },
+          improvements: { type: "array", items: { type: "string" } },
+          structuredData: {
+            type: "object",
+            properties: {
+              existing: { type: "array", items: { type: "string" } },
+              toImplement: { type: "array", items: { type: "string" } }
+            }
+          },
+          pageSpeed: {
+            type: "object",
+            properties: {
+              score: { type: "number" },
+              metrics: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                    value: { type: "string" },
+                    status: { type: "string" }
+                  }
+                }
+              }
+            }
+          },
+          qualityScore: { type: "number" },
+          eeat: {
+            type: "object",
+            properties: {
+              experience: { type: "string" },
+              expertise: { type: "string" },
+              authoritativeness: { type: "string" },
+              trustworthiness: { type: "string" },
+              overallScore: { type: "number" }
+            }
+          },
+          geoParameters: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                parameter: { type: "string" },
+                status: { type: "string" },
+                recommendation: { type: "string" }
+              }
+            }
+          }
+        }
+      };
+
+      const res = await extractStructured(seoUrl, prompt, seoSchema);
       
       if (res.success) {
-        setSeoResult(res.data);
+        const normalized = normalizeSeoResult(res.data);
+        if (!hasMeaningfulSeoData(normalized)) {
+          throw new Error("SEO extract returned empty/low-signal payload");
+        }
+        setSeoResult(normalized);
         
         // Step 3: Add to history
         const newHistory = {
@@ -440,7 +601,20 @@ export default function App() {
         setActionMessage({ type: 'success', text: 'Auditoria SEO finalizada com sucesso.' });
       } else {
         console.error("Firecrawl Extract failed:", res.error);
-        setActionMessage({ type: 'error', text: 'A extração da auditoria SEO falhou. Verifique a URL e tente novamente.' });
+        try {
+          // Fallback: se o Extract não retornar dados úteis, usamos scrape + Gemini.
+          const scraped = await scrapeUrl(seoUrl);
+          const fallback = await analyzeSEO(seoUrl, scraped.data?.markdown || scraped.data?.content || "");
+          const normalizedFallback = normalizeSeoResult(fallback);
+          if (!hasMeaningfulSeoData(normalizedFallback)) {
+            throw new Error("SEO fallback returned empty payload");
+          }
+          setSeoResult(normalizedFallback);
+          setActionMessage({ type: 'success', text: 'Auditoria SEO concluída via fallback automático.' });
+        } catch (fallbackError) {
+          console.error("SEO fallback failed:", fallbackError);
+          setActionMessage({ type: 'error', text: 'A extração da auditoria SEO falhou. Verifique a URL e tente novamente.' });
+        }
       }
     } catch (error) {
       console.error("Error in handleAnalyzeSEO:", error);
@@ -1858,26 +2032,54 @@ export default function App() {
                     <ResultCard title={t.dashboard.tabs.seo.results.onPageTitle} icon={<Search size={18} />}>
                       <div className="space-y-6">
                         <div className="space-y-3">
-                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Headings Structure</p>
-                          <div className="space-y-2 max-h-[150px] overflow-y-auto no-scrollbar pr-1">
-                            {(seoResult.headings || []).map((h, i) => (
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Headings Structure</p>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-semibold">
+                              {(seoResult.headings || []).length} itens
+                            </span>
+                          </div>
+                          <div className="space-y-2">
+                            {(showAllSeoHeadings ? (seoResult.headings || []) : (seoResult.headings || []).slice(0, 6)).map((h, i) => (
                               <div key={i} className="flex gap-3 items-start p-2 bg-muted/50 rounded-xl border border-white/5">
                                 <span className="text-[9px] bg-primary text-foreground px-2 py-0.5 rounded-full font-black shrink-0">{h.level}</span>
-                                <span className="text-[11px] text-foreground leading-tight">{h.text}</span>
+                                <span className="text-[11px] text-foreground leading-tight break-words">{h.text}</span>
                               </div>
                             ))}
                           </div>
+                          {(seoResult.headings || []).length > 6 && (
+                            <button
+                              type="button"
+                              onClick={() => setShowAllSeoHeadings((prev) => !prev)}
+                              className="text-[10px] font-semibold text-primary hover:underline"
+                            >
+                              {showAllSeoHeadings ? 'Mostrar menos' : `Mostrar mais (${(seoResult.headings || []).length - 6})`}
+                            </button>
+                          )}
                         </div>
                         <div className="space-y-3">
-                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Meta Tags</p>
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Meta Tags</p>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-semibold">
+                              {(seoResult.metaTags || []).length} itens
+                            </span>
+                          </div>
                           <div className="space-y-3">
-                            {(seoResult.metaTags || []).map((tag, i) => (
+                            {(showAllSeoMetaTags ? (seoResult.metaTags || []) : (seoResult.metaTags || []).slice(0, 5)).map((tag, i) => (
                               <div key={i} className="space-y-1 p-2 bg-muted/50 rounded-xl border border-white/5">
                                 <span className="text-[9px] text-primary font-black uppercase tracking-wider">{tag.name}</span>
-                                <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">{tag.content}</p>
+                                <p className="text-[11px] text-muted-foreground leading-relaxed break-words whitespace-pre-wrap">{tag.content}</p>
                               </div>
                             ))}
                           </div>
+                          {(seoResult.metaTags || []).length > 5 && (
+                            <button
+                              type="button"
+                              onClick={() => setShowAllSeoMetaTags((prev) => !prev)}
+                              className="text-[10px] font-semibold text-primary hover:underline"
+                            >
+                              {showAllSeoMetaTags ? 'Mostrar menos' : `Mostrar mais (${(seoResult.metaTags || []).length - 5})`}
+                            </button>
+                          )}
                         </div>
                       </div>
                     </ResultCard>
@@ -1885,6 +2087,18 @@ export default function App() {
                     {/* E-E-A-T Analysis */}
                     <ResultCard title={t.dashboard.tabs.seo.results.eeatTitle} icon={<Shield size={18} />}>
                       <div className="space-y-6">
+                        <div className="p-4 rounded-2xl border border-primary/20 bg-primary/5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">E-E-A-T Score</span>
+                            <span className="text-sm font-bold text-primary">{seoResult.eeat.overallScore}/10</span>
+                          </div>
+                          <div className="mt-3 h-2 rounded-full bg-muted overflow-hidden">
+                            <div
+                              className="h-full bg-primary transition-all duration-700"
+                              style={{ width: `${Math.max(0, Math.min(100, seoResult.eeat.overallScore * 10))}%` }}
+                            />
+                          </div>
+                        </div>
                         <div className="grid grid-cols-2 gap-3">
                           {[
                             { label: 'Experience', val: seoResult.eeat.experience },
@@ -1898,9 +2112,31 @@ export default function App() {
                             </div>
                           ))}
                         </div>
-                        <div className="p-4 bg-primary/10 border border-brand-orange/20 rounded-2xl">
+                        <div className="grid grid-cols-2 gap-3">
+                          {[
+                            { label: 'Experience', value: seoResult.eeat.experience },
+                            { label: 'Expertise', value: seoResult.eeat.expertise },
+                            { label: 'Authority', value: seoResult.eeat.authoritativeness },
+                            { label: 'Trust', value: seoResult.eeat.trustworthiness },
+                          ].map((item) => (
+                            <div key={item.label} className="p-3 rounded-xl border border-border bg-card/50">
+                              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{item.label}</p>
+                              <p className="mt-1 text-[10px] font-semibold text-foreground">
+                                {item.value ? `${item.value.length} chars` : 'Sem detalhe'}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="p-4 bg-primary/10 border border-brand-orange/20 rounded-2xl space-y-2">
                           <p className="text-[11px] text-primary italic leading-relaxed font-medium">
-                            "A análise de E-E-A-T sugere que esta página possui {seoResult.eeat.overallScore >= 8 ? 'alta' : 'média'} credibilidade perante os algoritmos do Google."
+                            {seoResult.eeat.overallScore >= 8
+                              ? 'A página demonstra alta credibilidade para critérios de qualidade do Google.'
+                              : seoResult.eeat.overallScore >= 5
+                              ? 'A página apresenta credibilidade moderada e pode ser reforçada com sinais de autoridade e prova.'
+                              : 'A página precisa fortalecer sinais de experiência, autoridade e confiança para competir melhor.'}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground leading-relaxed">
+                            Prioridade sugerida: reforçar autoria, citações de fonte e evidências práticas no conteúdo.
                           </p>
                         </div>
                       </div>
@@ -1909,10 +2145,20 @@ export default function App() {
                     {/* Structured Data */}
                     <ResultCard title={t.dashboard.tabs.seo.results.structuredTitle} icon={<FileText size={18} />}>
                       <div className="space-y-6">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="p-3 rounded-xl border border-green-500/20 bg-green-500/5">
+                            <p className="text-[9px] uppercase tracking-widest text-green-500 font-semibold">Schemas existentes</p>
+                            <p className="text-xl font-bold text-green-500 mt-1">{(seoResult.structuredData?.existing || []).length}</p>
+                          </div>
+                          <div className="p-3 rounded-xl border border-primary/20 bg-primary/5">
+                            <p className="text-[9px] uppercase tracking-widest text-primary font-semibold">Schemas recomendados</p>
+                            <p className="text-xl font-bold text-primary mt-1">{(seoResult.structuredData?.toImplement || []).length}</p>
+                          </div>
+                        </div>
                         <div className="space-y-3">
                           <p className="text-[10px] font-semibold text-green-500 uppercase tracking-widest">{t.dashboard.tabs.seo.results.existing}</p>
                           <div className="flex flex-wrap gap-2">
-                            {seoResult.structuredData.existing.map((s, i) => (
+                            {(seoResult.structuredData?.existing || []).map((s, i) => (
                               <span key={i} className="text-[10px] bg-green-500/10 text-green-500 px-3 py-1 rounded-full border border-green-500/20 font-bold">
                                 {s}
                               </span>
@@ -1928,6 +2174,12 @@ export default function App() {
                               </span>
                             ))}
                           </div>
+                        </div>
+                        <div className="p-4 rounded-2xl border border-border bg-muted/30 space-y-2">
+                          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Ação recomendada</p>
+                          <p className="text-[11px] text-foreground/80 leading-relaxed">
+                            Priorize primeiro os schemas com maior impacto de rich results (ex.: Organization, Article, FAQ, Breadcrumb, Product) e valide no Rich Results Test.
+                          </p>
                         </div>
                       </div>
                     </ResultCard>
@@ -1951,7 +2203,7 @@ export default function App() {
                     <ResultCard title={t.dashboard.tabs.seo.results.speedTitle} icon={<TrendingUp size={18} />}>
                       <div className="space-y-6">
                         <div className="space-y-3">
-                          {seoResult.pageSpeed.metrics.map((m, i) => (
+                          {(seoResult.pageSpeed?.metrics || []).map((m, i) => (
                             <div key={i} className="flex items-center justify-between p-3 bg-muted/50 rounded-2xl border border-white/5">
                               <div className="flex items-center gap-3">
                                 <div className={cn(
@@ -1973,7 +2225,7 @@ export default function App() {
                     {/* Improvements Checklist */}
                     <ResultCard title={t.dashboard.tabs.seo.results.checklistTitle} icon={<Check size={18} />}>
                       <div className="space-y-3">
-                        {seoResult.checklist.map((item, i) => (
+                        {(seoResult.checklist || []).map((item, i) => (
                           <div key={i} className="flex items-start gap-4 p-3 bg-muted/50 rounded-2xl border border-white/5">
                             <div className={cn(
                               "mt-0.5 p-1.5 rounded-full shrink-0",
@@ -2002,7 +2254,7 @@ export default function App() {
                       <h3 className="text-xl font-semibold">{t.dashboard.tabs.seo.actionPlan}</h3>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {seoResult.improvements.map((imp, i) => (
+                      {(seoResult.improvements || []).map((imp, i) => (
                         <div key={i} className="flex gap-4 p-4 bg-muted/50 rounded-2xl border border-white/5 hover:border-brand-orange/30 transition-colors group">
                           <span className="text-primary font-black text-sm group-hover:scale-110 transition-transform">0{i + 1}</span>
                           <p className="text-xs text-foreground leading-relaxed font-medium">{imp}</p>
