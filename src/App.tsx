@@ -213,6 +213,168 @@ export default function App() {
     );
   };
 
+  const normalizeKeywordResult = (raw: any): KeywordResult => {
+    const safe = raw && typeof raw === 'object' ? raw : {};
+    const keywords = Array.isArray(safe.keywords) ? safe.keywords : [];
+    const opportunities = Array.isArray(safe.opportunities) ? safe.opportunities : [];
+
+    const normalizedKeywords = keywords.map((k: any) => {
+      const difficultyNum = Number(k?.difficulty);
+      const normalizedDifficulty = Number.isFinite(difficultyNum) ? Math.max(0, Math.min(100, difficultyNum)) : 0;
+      const allowedIntents = ['Informativo', 'Transacional', 'Navegacional', 'Comercial'] as const;
+      const intent = allowedIntents.includes(k?.intent) ? k.intent : 'Informativo';
+      return {
+        term: typeof k?.term === 'string' ? k.term : '',
+        volume: typeof k?.volume === 'string' ? k.volume : String(k?.volume ?? '-'),
+        difficulty: normalizedDifficulty,
+        intent,
+        competitors: Array.isArray(k?.competitors) ? k.competitors.filter(Boolean) : [],
+      };
+    }).filter((k: any) => k.term);
+
+    return {
+      keywords: normalizedKeywords,
+      opportunities: opportunities.filter((item: any) => typeof item === 'string' && item.trim().length > 0),
+    };
+  };
+
+  const hasMeaningfulKeywordData = (data: KeywordResult | null): boolean => {
+    if (!data) return false;
+    return (data.keywords?.length || 0) > 0 || (data.opportunities?.length || 0) > 0;
+  };
+
+  const normalizeGapResult = (raw: any): GapResult => {
+    const safe = raw && typeof raw === 'object' ? raw : {};
+    const gaps = Array.isArray(safe.gaps) ? safe.gaps : [];
+    const summary = typeof safe.summary === 'string' ? safe.summary : '';
+    const allowed = ['High', 'Medium', 'Low'] as const;
+
+    const normalizedGaps = gaps.map((g: any) => {
+      const competitorStrength = allowed.includes(g?.competitorStrength) ? g.competitorStrength : 'Medium';
+      const priority = allowed.includes(g?.priority) ? g.priority : 'Medium';
+      return {
+        topic: typeof g?.topic === 'string' ? g.topic : '',
+        competitorStrength,
+        opportunity: typeof g?.opportunity === 'string' ? g.opportunity : '',
+        priority,
+      };
+    }).filter((g: any) => g.topic);
+
+    return { gaps: normalizedGaps, summary };
+  };
+
+  const hasMeaningfulGapData = (data: GapResult | null): boolean => {
+    if (!data) return false;
+    return (data.gaps?.length || 0) > 0 || (data.summary?.trim().length || 0) > 0;
+  };
+
+  const analyzeGapsFallback = async (domain: string, competitors: string[]): Promise<GapResult> => {
+    const targets = [domain, ...competitors].filter(Boolean).slice(0, 4);
+    const scraped = await Promise.all(
+      targets.map(async (url) => {
+        try {
+          const res = await scrapeUrl(url);
+          return { url, content: res.data?.markdown || res.data?.content || "" };
+        } catch {
+          return { url, content: "" };
+        }
+      })
+    );
+
+    const prompt = `
+      Você é um estrategista de conteúdo e SEO.
+      Gere um CONTENT GAP ANALYSIS em JSON para:
+      - Domínio principal: ${domain}
+      - Concorrentes: ${competitors.join(", ")}
+
+      Contexto coletado:
+      ${scraped.map((s) => `URL: ${s.url}\nCONTEÚDO:\n${String(s.content).slice(0, 6000)}`).join("\n\n---\n\n")}
+
+      Retorne SOMENTE JSON no formato:
+      {
+        "gaps": [
+          {
+            "topic": "string",
+            "competitorStrength": "High|Medium|Low",
+            "opportunity": "string",
+            "priority": "High|Medium|Low"
+          }
+        ],
+        "summary": "string"
+      }
+
+      Regras:
+      - Retorne pelo menos 6 gaps quando possível.
+      - opportunity precisa ser acionável (o que produzir + intenção + motivo).
+    `;
+
+    const response = await (ai as any).models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: { responseMimeType: "application/json" }
+    });
+
+    const text = String(response.text || "").replace(/```json/g, "").replace(/```/g, "").trim();
+    const parsed = JSON.parse(text);
+    return normalizeGapResult(parsed);
+  };
+
+  const fetchKeywordsFallback = async (domain: string, competitors: string[]): Promise<KeywordResult> => {
+    const targets = [domain, ...competitors].filter(Boolean).slice(0, 4);
+    const scraped = await Promise.all(
+      targets.map(async (url) => {
+        try {
+          const res = await scrapeUrl(url);
+          return {
+            url,
+            content: res.data?.markdown || res.data?.content || ""
+          };
+        } catch {
+          return { url, content: "" };
+        }
+      })
+    );
+
+    const prompt = `
+      Você é um estrategista de SEO.
+      Gere um KEYWORD GAP ANALYSIS em JSON para:
+      - Domínio principal: ${domain}
+      - Concorrentes: ${competitors.join(", ")}
+
+      Contexto coletado:
+      ${scraped.map((s) => `URL: ${s.url}\nCONTEÚDO:\n${String(s.content).slice(0, 6000)}`).join("\n\n---\n\n")}
+
+      Retorne SOMENTE JSON no formato:
+      {
+        "keywords": [
+          {
+            "term": "string",
+            "volume": "string",
+            "difficulty": number,
+            "intent": "Informativo|Transacional|Navegacional|Comercial",
+            "competitors": ["string"]
+          }
+        ],
+        "opportunities": ["string"]
+      }
+
+      Regras:
+      - Retorne pelo menos 8 keywords quando possível.
+      - difficulty entre 0 e 100.
+      - Evite campos vazios.
+    `;
+
+    const response = await (ai as any).models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: { responseMimeType: "application/json" }
+    });
+
+    const text = String(response.text || "").replace(/```json/g, "").replace(/```/g, "").trim();
+    const parsed = JSON.parse(text);
+    return normalizeKeywordResult(parsed);
+  };
+
   const tabs: { id: Tab; icon: any; label: string }[] = [
     { id: 'Pesquisa', icon: Search, label: t.dashboard.search },
     { id: 'Trends', icon: Flame, label: t.dashboard.trends },
@@ -639,14 +801,29 @@ export default function App() {
     setKeywordResult(null);
     try {
       const data = await fetchKeywords(targetDomain, brandUrls);
-      setKeywordResult(data);
+      const normalized = normalizeKeywordResult(data);
+      let finalResult = normalized;
+
+      if (!hasMeaningfulKeywordData(normalized)) {
+        finalResult = await fetchKeywordsFallback(targetDomain, brandUrls);
+      }
+
+      if (!hasMeaningfulKeywordData(finalResult)) {
+        setActionMessage({
+          type: 'error',
+          text: 'A análise retornou sem keywords úteis. Tente mais concorrentes ou uma URL mais específica.'
+        });
+        return;
+      }
+
+      setKeywordResult(finalResult);
 
       // Add to history
       const newHistory = {
         id: Date.now().toString(),
         domain: targetDomain,
         date: new Date().toLocaleDateString(),
-        count: (data.keywords || []).length
+        count: (finalResult.keywords || []).length
       };
       setKeywordHistory(prev => [newHistory, ...prev.slice(0, 4)]);
       setActionMessage({ type: 'success', text: 'Pesquisa de keywords concluída.' });
@@ -673,7 +850,17 @@ export default function App() {
     setGapResult(null);
     try {
       const data = await analyzeGaps(targetDomain, brandUrls);
-      setGapResult(data);
+      let normalized = normalizeGapResult(data);
+      if (!hasMeaningfulGapData(normalized) || (normalized.gaps || []).length === 0) {
+        normalized = await analyzeGapsFallback(targetDomain, brandUrls);
+      }
+
+      if (!hasMeaningfulGapData(normalized) || (normalized.gaps || []).length === 0) {
+        setActionMessage({ type: 'error', text: 'A análise de gaps não retornou itens úteis. Tente adicionar mais concorrentes.' });
+        return;
+      }
+
+      setGapResult(normalized);
       setActionMessage({ type: 'success', text: 'Gap Analysis concluída com sucesso.' });
     } catch (error) {
       console.error(error);
@@ -2386,15 +2573,34 @@ export default function App() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
                   <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">{t.dashboard.tabs.keywords.step1Title}</label>
-                  <div className="p-4 bg-muted/50 rounded-2xl border border-border text-sm font-semibold">
-                    {targetDomain}
-                  </div>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="https://seudominio.com"
+                    value={targetDomain}
+                    onChange={(e) => setTargetDomain(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-3">
                   <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">{t.dashboard.tabs.keywords.competitors}</label>
+                  <form onSubmit={handleAddBrandUrl} className="flex gap-2">
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder="https://concorrente.com"
+                      value={brandUrlInput}
+                      onChange={(e) => setBrandUrlInput(e.target.value)}
+                    />
+                    <button type="submit" className="bg-brand-card border border-border p-2.5 rounded-lg hover:bg-brand-card-hover transition-all">
+                      <Plus size={18} />
+                    </button>
+                  </form>
                   <div className="flex flex-wrap gap-2">
                     {brandUrls.map(url => (
-                      <span key={url} className="tag bg-muted/50 border-border text-[10px] px-3 py-1.5 rounded-full font-semibold">{url}</span>
+                      <span key={url} className="tag bg-muted/50 border-border text-[10px] px-3 py-1.5 rounded-full font-semibold">
+                        {url}
+                        <X size={12} className="cursor-pointer hover:text-orange-300" onClick={() => removeBrandUrl(url)} />
+                      </span>
                     ))}
                     {brandUrls.length === 0 && <span className="text-[10px] text-muted-foreground italic font-medium">{t.dashboard.tabs.keywords.noneAdded}</span>}
                   </div>
@@ -2524,6 +2730,47 @@ export default function App() {
                 <h3 className="text-sm font-semibold">{t.dashboard.tabs.gaps.title}</h3>
               </div>
               <p className="text-xs text-muted-foreground">{t.dashboard.tabs.gaps.subtitle}</p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Domínio</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="https://seudominio.com"
+                    value={targetDomain}
+                    onChange={(e) => setTargetDomain(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-3">
+                  <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Concorrentes</label>
+                  <form onSubmit={handleAddBrandUrl} className="flex gap-2">
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder="https://concorrente.com"
+                      value={brandUrlInput}
+                      onChange={(e) => setBrandUrlInput(e.target.value)}
+                    />
+                    <button type="submit" className="bg-brand-card border border-border p-2.5 rounded-lg hover:bg-brand-card-hover transition-all">
+                      <Plus size={18} />
+                    </button>
+                  </form>
+                  <div className="flex flex-wrap gap-2">
+                    {brandUrls.map(url => (
+                      <span key={url} className="tag bg-muted/50 border-border text-[10px] px-3 py-1.5 rounded-full font-semibold">
+                        {url}
+                        <X size={12} className="cursor-pointer hover:text-orange-300" onClick={() => removeBrandUrl(url)} />
+                      </span>
+                    ))}
+                    {brandUrls.length === 0 && (
+                      <span className="text-[10px] text-muted-foreground italic font-medium">
+                        Adicione ao menos 1 concorrente para comparar.
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
               
               <button 
                 onClick={handleAnalyzeGaps}

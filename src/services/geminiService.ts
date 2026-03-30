@@ -228,8 +228,31 @@ export async function analyzeGaps(domain: string, competitors: string[]): Promis
     CONTENT GAP ANALYSIS:
     Domínio: ${domain}
     Concorrentes: ${competitors.join(", ")}
-    Identifique lacunas estratégicas de conteúdo.
-    Responda apenas com o JSON puro seguindo a estrutura de GapResult.
+    
+    OBJETIVO:
+    Identificar lacunas estratégicas de conteúdo (temas e intenções) onde os concorrentes têm força e o domínio principal está fraco/ausente.
+    
+    INSTRUÇÕES:
+    - Use googleSearch para coletar evidências rápidas (títulos/temas) dos concorrentes.
+    - Retorne pelo menos 6 gaps quando possível.
+    - competitorStrength e priority devem ser apenas: High, Medium ou Low.
+    - opportunity deve ser acionável (ex.: o que produzir, para qual intenção, e por quê).
+    - summary deve trazer um resumo executivo em português.
+    
+    FORMATO (JSON) OBRIGATÓRIO:
+    {
+      "gaps": [
+        {
+          "topic": "string",
+          "competitorStrength": "High|Medium|Low",
+          "opportunity": "string",
+          "priority": "High|Medium|Low"
+        }
+      ],
+      "summary": "string"
+    }
+    
+    Responda SOMENTE com o JSON puro.
   `;
 
   try {
